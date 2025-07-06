@@ -11,7 +11,7 @@ mkdir -p certbot/www
 
 # First, start the containers with HTTP only to get the initial certificate
 echo "Starting containers with HTTP configuration..."
-docker-compose up -d
+docker compose up -d
 
 # Wait for containers to be ready
 echo "Waiting for containers to start..."
@@ -23,7 +23,7 @@ curl -I http://nextcloud.upturn.com.bd || echo "Warning: Domain not accessible y
 
 # Get the initial certificate
 echo "Obtaining SSL certificate..."
-docker-compose run --rm certbot certonly \
+docker compose run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email saim.ul.islam@outlook.com \
@@ -41,8 +41,8 @@ if [ -f "certbot/conf/live/nextcloud.upturn.com.bd/fullchain.pem" ]; then
     
     # Restart containers with HTTPS configuration
     echo "Restarting containers with HTTPS configuration..."
-    docker-compose down
-    docker-compose up -d
+    docker compose down
+    docker compose up -d
     
     echo "Setup complete! Your Nextcloud should now be accessible at https://nextcloud.upturn.com.bd"
     echo "Note: It may take a few minutes for the containers to fully start."
@@ -58,8 +58,8 @@ fi
 echo "Setting up certificate auto-renewal..."
 cat > renew-certs.sh << 'EOF'
 #!/bin/bash
-docker-compose run --rm certbot renew
-docker-compose exec web nginx -s reload
+docker compose run --rm certbot renew
+docker compose exec web nginx -s reload
 EOF
 
 chmod +x renew-certs.sh
