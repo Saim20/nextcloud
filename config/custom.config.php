@@ -13,6 +13,26 @@ $CONFIG = array(
   'overwritehost' => getenv('DOMAIN') ?: 'localhost',
   'overwrite.cli.url' => 'https://' . (getenv('DOMAIN') ?: 'localhost'),
   
+  // Trusted proxies for reverse proxy setup
+  'trusted_proxies' => array(
+    0 => '172.16.0.0/12',
+    1 => '172.17.0.0/16',
+    2 => '172.18.0.0/16',
+    3 => '172.19.0.0/16',
+    4 => '172.20.0.0/16',
+    5 => '172.21.0.0/16',
+    6 => '172.22.0.0/16',
+    7 => '172.23.0.0/16',
+    8 => '172.24.0.0/16',
+    9 => '172.25.0.0/16',
+    10 => '172.26.0.0/16',
+    11 => '172.27.0.0/16',
+    12 => '172.28.0.0/16',
+    13 => '172.29.0.0/16',
+    14 => '172.30.0.0/16',
+    15 => '172.31.0.0/16',
+  ),
+  
   // Redis configuration for caching and session storage
   'memcache.local' => '\\OC\\Memcache\\APCu',
   'memcache.distributed' => '\\OC\\Memcache\\Redis',

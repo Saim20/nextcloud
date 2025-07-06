@@ -26,6 +26,7 @@ services:
       - --certificatesresolvers.letsencrypt.acme.storage=/data/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      # Enable automatic HTTP to HTTPS redirect
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
     labels:
@@ -76,21 +77,33 @@ services:
       - NEXTCLOUD_ADMIN_USER=${ADMIN_USER:-admin}
       - NEXTCLOUD_ADMIN_PASSWORD=${ADMIN_PASSWORD:-change_this_password}
       - NEXTCLOUD_TRUSTED_DOMAINS=${DOMAIN:-localhost}
+      # Enable HTTPS enforcement
       - OVERWRITEPROTOCOL=https
       - OVERWRITEHOST=${DOMAIN:-localhost}
       - TRUSTED_PROXIES=172.16.0.0/12
     depends_on:
       - db
       - redis
+    # Remove direct port access - use reverse proxy only
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nextcloud.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.nextcloud.tls=true"
-      - "traefik.http.routers.nextcloud.tls.certresolver=letsencrypt"
+      # HTTP router - will redirect to HTTPS
+      - "traefik.http.routers.nextcloud-http.rule=Host(`nextcloud.upturn.com.bd`)"
+      - "traefik.http.routers.nextcloud-http.entrypoints=web"
+      - "traefik.http.routers.nextcloud-http.service=nextcloud"
+      # HTTPS router with Let's Encrypt
+      - "traefik.http.routers.nextcloud-https.rule=Host(`nextcloud.upturn.com.bd`)"
+      - "traefik.http.routers.nextcloud-https.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud-https.tls=true"
+      - "traefik.http.routers.nextcloud-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nextcloud-https.service=nextcloud"
+      - "traefik.http.routers.nextcloud-https.middlewares=nextcloud-headers"
+      # Service definition
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
-      - "traefik.http.routers.nextcloud.middlewares=nextcloud-headers"
+      # Security headers middleware
       - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
       - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-For=$$remote_addr"
+      - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-Host=nextcloud.upturn.com.bd"
     networks:
       - web
       - backend
