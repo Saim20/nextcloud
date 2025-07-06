@@ -23,6 +23,8 @@ services:
       - nextcloud:/var/www/html
     environment:
       - VIRTUAL_HOST=${DOMAIN_NAME}
+      - LETSENCRYPT_HOST=${DOMAIN_NAME}
+      - LETSENCRYPT_EMAIL=${LETS_ENCRYPT_EMAIL}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
@@ -51,31 +53,29 @@ services:
     ports:
       - 80:80
       - 443:443
-    environment:
-      - DEFAULT_HOST=${DOMAIN_NAME}
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
     volumes:
       - certs:/etc/nginx/certs:z,ro
       - vhost.d:/etc/nginx/vhost.d:z
       - html:/usr/share/nginx/html:z
       - /var/run/docker.sock:/tmp/docker.sock:z,ro
-    depends_on:
-      - omgwtfssl
     networks:
       - proxy-tier
 
-  omgwtfssl:
-    image: csckcac/omgwtfssl
-    restart: "no"
+  letsencrypt-companion:
+    image: nginxproxy/acme-companion
+    restart: always
     volumes:
-      - certs:/certs
-    environment:
-      - SSL_SUBJECT=${DOMAIN_NAME}
-      - CA_SUBJECT=my@example.com
-      - SSL_KEY=/certs/${DOMAIN_NAME}.key
-      - SSL_CSR=/certs/${DOMAIN_NAME}.csr
-      - SSL_CERT=/certs/${DOMAIN_NAME}.crt
+      - certs:/etc/nginx/certs:z
+      - acme:/etc/acme.sh:z
+      - vhost.d:/etc/nginx/vhost.d:z
+      - html:/usr/share/nginx/html:z
+      - /var/run/docker.sock:/var/run/docker.sock:z,ro
     networks:
       - proxy-tier
+    depends_on:
+      - proxy
 
 volumes:
   nextcloud:
