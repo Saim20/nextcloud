@@ -1,116 +1,74 @@
-volumes:
-  nextcloud_data:
-  db_data:
-  redis_data:
-  traefik_data:
-
 services:
-  # Traefik reverse proxy with automatic HTTPS
-  traefik:
-    image: traefik:v3.0
+  # Init container to fix volume permissions
+  init-nextcloud:
+    image: nextcloud:fpm-alpine
+    container_name: nextcloud-init
+    user: "0:0"  # root user to fix permissions
+    volumes:
+      - nextcloud_data:/var/www/html
+    command: |
+      sh -c "
+        chown -R 33:33 /var/www/html 2>/dev/null || true
+        chmod -R 755 /var/www/html 2>/dev/null || true
+        exit 0
+      "
+    restart: "no"
+
+  db:
+    image: postgres:alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+
+  nextcloud:
+    image: nextcloud:fpm-alpine
+    container_name: nextcloud-app
+    restart: unless-stopped
+    user: "33:33"  # www-data user
+    volumes:
+      - nextcloud_data:/var/www/html
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+      - POSTGRES_HOST=db
+      - NEXTCLOUD_ADMIN_USER=admin
+      - NEXTCLOUD_ADMIN_PASSWORD=admin123
+      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.upturn.com.bd localhost
+    depends_on:
+      - db
+      - init-nextcloud
+
+  web:
+    image: nginx:alpine
+    container_name: nextcloud-web
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Traefik dashboard
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_data:/data
-    command:
-      - --api.dashboard=true
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.letsencrypt.acme.email=saim@upturn.com.bd
-      - --certificatesresolvers.letsencrypt.acme.storage=/data/acme.json
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      # Enable automatic HTTP to HTTPS redirect
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik.tls=true"
-      - "traefik.http.routers.traefik.service=api@internal"
-    networks:
-      - web
-
-  # Redis for caching and session storage
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_password}
-    volumes:
-      - redis_data:/data
-    networks:
-      - backend
-
-  db:
-    image: mariadb:10.11
-    restart: unless-stopped
-    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --innodb-file-per-table=1 --skip-innodb-read-only-compressed
-    volumes:
-      - db_data:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-nextcloud_root_password}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-nextcloud_password}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-    networks:
-      - backend
-
-  app:
-    image: nextcloud:latest
-    restart: unless-stopped
-    volumes:
-      - nextcloud_data:/var/www/html
-      - ./config/custom.config.php:/var/www/html/config/zzz-custom.config.php:ro
-    environment:
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-nextcloud_password}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_HOST=db
-      - REDIS_HOST=redis
-      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD:-redis_secure_password}
-      - NEXTCLOUD_ADMIN_USER=${ADMIN_USER:-admin}
-      - NEXTCLOUD_ADMIN_PASSWORD=${ADMIN_PASSWORD:-change_this_password}
-      - NEXTCLOUD_TRUSTED_DOMAINS=${DOMAIN:-localhost}
-      # Enable HTTPS enforcement
-      - OVERWRITEPROTOCOL=https
-      - OVERWRITEHOST=${DOMAIN:-localhost}
-      - TRUSTED_PROXIES=172.16.0.0/12
+      - nextcloud_data:/var/www/html:ro
+      - ./nginx-simple.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
     depends_on:
-      - db
-      - redis
-    # Remove direct port access - use reverse proxy only
-    labels:
-      - "traefik.enable=true"
-      # HTTP router - will redirect to HTTPS
-      - "traefik.http.routers.nextcloud-http.rule=Host(`nextcloud.upturn.com.bd`)"
-      - "traefik.http.routers.nextcloud-http.entrypoints=web"
-      - "traefik.http.routers.nextcloud-http.service=nextcloud"
-      # HTTPS router with Let's Encrypt
-      - "traefik.http.routers.nextcloud-https.rule=Host(`nextcloud.upturn.com.bd`)"
-      - "traefik.http.routers.nextcloud-https.entrypoints=websecure"
-      - "traefik.http.routers.nextcloud-https.tls=true"
-      - "traefik.http.routers.nextcloud-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.nextcloud-https.service=nextcloud"
-      - "traefik.http.routers.nextcloud-https.middlewares=nextcloud-headers"
-      # Service definition
-      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
-      # Security headers middleware
-      - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
-      - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-For=$$remote_addr"
-      - "traefik.http.middlewares.nextcloud-headers.headers.customrequestheaders.X-Forwarded-Host=nextcloud.upturn.com.bd"
-    networks:
-      - web
-      - backend
+      - nextcloud
 
-networks:
-  web:
-    external: false
-  backend:
-    external: false
+  certbot:
+    image: certbot/certbot
+    container_name: nextcloud-certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email saim.ul.islam@outlook.com --agree-tos --no-eff-email -d nextcloud.upturn.com.bd
 
+volumes:
+  nextcloud_data:
+  db_data:
