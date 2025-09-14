@@ -7,7 +7,7 @@ services:
       - db:/var/lib/mysql
     environment:
       - MARIADB_RANDOM_ROOT_PASSWORD=yes
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_PASSWORD=nextcloud_password
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
 
@@ -18,74 +18,32 @@ services:
   app:
     image: nextcloud:apache
     restart: always
+    ports:
+      - 80:80
     volumes:
-      - ${STORAGE_LOCATION}:/var/www/html/data
+      - nextcloud_data:/var/www/html/data
       - nextcloud:/var/www/html
     environment:
-      - VIRTUAL_HOST=${DOMAIN_NAME}
-      - LETSENCRYPT_HOST=${DOMAIN_NAME}
-      - LETSENCRYPT_EMAIL=${LETS_ENCRYPT_EMAIL}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_PASSWORD=nextcloud_password
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
       - MYSQL_HOST=db
       - REDIS_HOST=redis
-      - OVERWRITEPROTOCOL=https
-      - OVERWRITEHOST=${DOMAIN_NAME}
-      - TRUSTED_PROXIES=proxy
     depends_on:
       - db
       - redis
-    networks:
-      - proxy-tier
 
   cron:
     image: nextcloud:apache
     restart: always
     volumes:
-      - nextcloud:/var/www/html:z
+      - nextcloud:/var/www/html
     entrypoint: /cron.sh
     depends_on:
       - db
       - redis
 
-  proxy:
-    build: ./proxy
-    restart: always
-    ports:
-      - 80:80
-      - 443:443
-    labels:
-      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
-    volumes:
-      - certs:/etc/nginx/certs:z,ro
-      - vhost.d:/etc/nginx/vhost.d:z
-      - html:/usr/share/nginx/html:z
-      - /var/run/docker.sock:/tmp/docker.sock:z,ro
-    networks:
-      - proxy-tier
-
-  letsencrypt-companion:
-    image: nginxproxy/acme-companion
-    restart: always
-    volumes:
-      - certs:/etc/nginx/certs:z
-      - acme:/etc/acme.sh:z
-      - vhost.d:/etc/nginx/vhost.d:z
-      - html:/usr/share/nginx/html:z
-      - /var/run/docker.sock:/var/run/docker.sock:z,ro
-    networks:
-      - proxy-tier
-    depends_on:
-      - proxy
-
 volumes:
   nextcloud:
+  nextcloud_data:
   db:
-  certs:
-  acme:
-  vhost.d:
-  html:
-
-networks:
-  proxy-tier:
