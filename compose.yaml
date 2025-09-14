@@ -30,8 +30,9 @@ services:
       - MYSQL_USER=nextcloud
       - MYSQL_HOST=db
       - REDIS_HOST=redis
+      - OVERWRITEPROTOCOL=https
       - OVERWRITEHOST=${DOMAIN_NAME}
-      - TRUSTED_PROXIES=172.19.0.0/16
+      - TRUSTED_PROXIES=proxy
     depends_on:
       - db
       - redis
