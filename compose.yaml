@@ -80,6 +80,14 @@ services:
       - OPENPROJECT_SECRET_KEY_BASE=${OPENPROJECT_SECRET_KEY_BASE:-supersecretkey123456789}
       - OPENPROJECT_HOST__NAME=${OPENPROJECT_DOMAIN_NAME:-localhost:8081}
       - OPENPROJECT_HTTPS=false
+      - OPENPROJECT_SERVER__NAME=${OPENPROJECT_DOMAIN_NAME:-localhost:8081}
+      - OPENPROJECT_RAILS__FORCE__SSL=false
+      - OPENPROJECT_RAILS__RELATIVE__URL__ROOT=""
+      - OPENPROJECT_WEB__TIMEOUT=120
+      - OPENPROJECT_WEB__WORKER__TIMEOUT=120
+      - OPENPROJECT_SESSION__STORE=active_record_store
+      - OPENPROJECT_SESSION__COOKIE__NAME=_open_project_session
+      - OPENPROJECT_CACHE__MEMCACHE__SERVER=localhost:11211
       - DATABASE_URL=postgres://openproject:${OPENPROJECT_DB_PASSWORD:-openproject123}@openproject-db:5432/openproject
     volumes:
       - openproject_assets:/var/openproject/assets
