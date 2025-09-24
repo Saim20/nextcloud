@@ -56,26 +56,6 @@ services:
       - db
       - redis
 
-  onlyoffice:
-    image: onlyoffice/documentserver:latest
-    restart: always
-    ports:
-      - 8081:80
-    environment:
-      - JWT_ENABLED=true
-      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET}
-      - JWT_HEADER=Authorization
-      - JWT_IN_BODY=true
-    volumes:
-      - onlyoffice_data:/var/www/onlyoffice/Data
-      - onlyoffice_logs:/var/log/onlyoffice
-      - onlyoffice_cache:/var/lib/onlyoffice
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   openproject-db:
     image: postgres:13
     restart: always
@@ -100,10 +80,10 @@ services:
     image: openproject/community:13
     restart: always
     ports:
-      - 8082:80
+      - 8081:80
     environment:
       - OPENPROJECT_SECRET_KEY_BASE=${OPENPROJECT_SECRET_KEY_BASE}
-      - OPENPROJECT_HOST__NAME=${OPENPROJECT_DOMAIN_NAME}:8082
+      - OPENPROJECT_HOST__NAME=${OPENPROJECT_DOMAIN_NAME}
       - OPENPROJECT_HTTPS=false
       - DATABASE_URL=postgresql://openproject:${OPENPROJECT_DB_PASSWORD}@openproject-db/openproject?pool=20&encoding=unicode&reconnect=true
       - RAILS_CACHE_STORE=memcache
@@ -130,9 +110,6 @@ volumes:
   nextcloud:
   nextcloud_data:
   db:
-  onlyoffice_data:
-  onlyoffice_logs:
-  onlyoffice_cache:
   openproject_pgdata:
   openproject_assets:
   openproject_uploads:
