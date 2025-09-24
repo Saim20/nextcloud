@@ -88,6 +88,9 @@ services:
       - OPENPROJECT_SESSION__STORE=active_record_store
       - OPENPROJECT_SESSION__COOKIE__NAME=_open_project_session
       - OPENPROJECT_CACHE__MEMCACHE__SERVER=localhost:11211
+      - OPENPROJECT_CACHE__NAMESPACE=openproject
+      - OPENPROJECT_SESSION__COOKIE__SAME__SITE=Lax
+      - OPENPROJECT_SESSION__COOKIE__SECURE=false
       - DATABASE_URL=postgres://openproject:${OPENPROJECT_DB_PASSWORD:-openproject123}@openproject-db:5432/openproject
     volumes:
       - openproject_assets:/var/openproject/assets
